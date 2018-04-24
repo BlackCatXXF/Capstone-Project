@@ -4,6 +4,7 @@ import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
+import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -15,8 +16,12 @@ import com.daimajia.slider.library.SliderTypes.BaseSliderView;
 import com.daimajia.slider.library.SliderTypes.TextSliderView;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
+import com.xxf.campussnackshop.Contants;
 import com.xxf.campussnackshop.R;
+import com.xxf.campussnackshop.adapter.HomeAdapter;
 import com.xxf.campussnackshop.bean.Banner;
+import com.xxf.campussnackshop.bean.Page;
+import com.xxf.campussnackshop.bean.Ware;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -35,7 +40,10 @@ public class HomeFragment extends Fragment {
     private SliderLayout mSliderLayout;
     private RecyclerView mRecyclerView;
 
+    private HomeAdapter homeAdapter = null;
+
     private List<Banner> mBanners = new ArrayList<>();
+    private List<Ware> mWares = new ArrayList<>();
 
     @Nullable
     @Override
@@ -46,11 +54,20 @@ public class HomeFragment extends Fragment {
         mRecyclerView = view.findViewById(R.id.recyclerview);
 
 
-        String banner ="http://112.124.22.238:8081/course_api/banner/query?type=1";
-        new FetchTask().execute(banner);
+        new FetchTask().execute(Contants.banner);
+        new FetchTask().execute(Contants.wares);
+
+        initRecyclerView();
 
         return view;
     }
+
+    private void initRecyclerView() {
+        homeAdapter = new HomeAdapter(getContext(),mWares);
+        mRecyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
+        mRecyclerView.setAdapter(homeAdapter);
+    }
+
 
     private String fetchData(String url) {
 
@@ -72,30 +89,52 @@ public class HomeFragment extends Fragment {
 
     }
 
-    private class FetchTask extends AsyncTask<String, Integer, Boolean> {
+    private class FetchTask extends AsyncTask<String, Integer, Integer> {
 
         String jsonResponse = null;
         @Override
-        protected Boolean doInBackground(String... urls) {
+        protected Integer doInBackground(String... urls) {
                 jsonResponse = fetchData(urls[0]);
-            if (mBanners != null) {
+
+            if (urls[0] == Contants.banner){
+                if (mBanners != null) {
                 mBanners.clear();
             }
-            parseJsonWithGson(jsonResponse);
+                parseJsonWithGson(jsonResponse);
+                return 1;
+            }else if (urls[0] == Contants.wares){
+                if (mWares != null){
+                    mWares.clear();
+                }
+                parseWaresJson(jsonResponse);
+                return 2;
+            }
 
-            return true;
+
+            return 0;
         }
 
         @Override
-        protected void onPostExecute(Boolean aBoolean) {
-            super.onPostExecute(aBoolean);
-            initSlider();
+        protected void onPostExecute(Integer what) {
+            super.onPostExecute(what);
+            if (what == 1){
+                initSlider();
+            }else if (what == 2){
+                homeAdapter.setData(mWares);
+            }
+
         }
     }
 
     private void parseJsonWithGson(String json){
         Gson gson = new Gson();
         mBanners = gson.fromJson(json, new TypeToken<List<Banner>>(){}.getType());
+    }
+
+    private void parseWaresJson(String json){
+        Gson gson = new Gson();
+        Page page = gson.fromJson(json,new TypeToken<Page<Ware>>(){}.getType());
+        mWares = page.getList();
     }
 
     private void initSlider(){
